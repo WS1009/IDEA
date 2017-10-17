@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 命名空间，作用就是对SQL分类化管理 ，理解为SQL隔离 注意：使用mapper代理方式开发，
+	namespace有特殊重要的作用 namespace等于mapper接口地址
+ -->
+<mapper namespace="cn.nuaa.testmapper.UserMapper">
+
+    <!-- 开启本mapper的namespace下的二级缓存
+        还要将用到的pojo实现序列化接口
+        type:指定cache接口实现类的类型，mybatis默认使用PrepetualCache
+        要和ehCache整合就需要配置type为ehcache实现cache接口的类、
+        <cache flushInterval="100" size="10" eviction="FIFO" readOnly="true"/>
+    -->
+    <cache type="org.mybatis.caches.ehcache.EhcacheCache">
+    </cache>
+
+
+    <!-- 在映射文件中配置很多sql语句 -->
+    <!--
+        通过select执行数据库的查询
+        id：用于标识映射文件中的sql，称为statement的id 将来这个sql语句会封装到mappedStatement对象中，所以将id称为statement的id
+        需求：通过id查询用户表的记录
+        #{}:表示一个占位符
+        parameterType：指定传入参数的类型
+        #{id}:其中的id表示接受输入的参数，参数名为id，如果输入参数为简单类型，#{}中的参数名可以任意，可以是value或其他的
+        resultType:指定sql输出结果的所映射的java对象类型，这里select指定resultType表示将单条记录映射成的java对象
+        useCache="false":禁用二级缓存
+    -->
+    <select id="findUserById" parameterType="int" resultType="user" useCache="true">
+		select * from user where id=#{id}
+	</select>
+
+
+    <!-- 定义resultMap 将select id id_,username username_ from user和user类中的属性作一个映射关系
+    type:resultMap最终映射的Java对象类型，可以使用别名
+    id：对resultMap的唯一标示 -->
+    <resultMap type="user" id="userResultMap">
+        <!--
+        id：表示查询结果集中唯一的标识
+        column:查询出来的列名
+        property：type指定的pojo中的属性名 最终resultMap对column和property做一个映射关系（对应关系） -->
+        <id column="id_" property="id"/>
+
+        <!-- 对普通名映射定义
+        column:查询出来的列名
+        property：type指定的pojo中的属性名 最终resultMap对column和property做一个映射关系（对应关系） -->
+        <result column="username_" property="username"/>
+    </resultMap>
+
+
+    <!-- 使用resultMap进行输出的映射，只有查询出来的列名和pojo中的属性名一致，该列才可以映射成功。
+        如果查询出来的列名和pojo中的属性名全部不一致，没有创建pojo对象。
+        如果查询出来的列名和pojo中的属性名有一个一致，就会创建pojo对象。
+        resultMap:指定定义的resultMap的id，如果这个resultMap在其他的mapper文件定义，前面需要加上namespace
+     -->
+    <select id="findUserByIdResultMap" parameterType="int" resultMap="userResultMap">
+		select id id_,username username_ from user where id=#{id}
+	</select>
+
+
+    <!-- 自定义条件查询用户列表
+         ${}：表示拼接sql串，将接受到参数的内容不加任何的修饰拼接到sql语句中 这种方式使用$可能会引起SQL注入
+         ${value}：表示接受参数输入的内容，如果传入的参数是简单类型，只能使用value
+    -->
+    <select id="findUserByUsername" parameterType="java.lang.String" resultType="cn.nuaa.po.User">
+		select * from user where username like '%${value}%'
+	</select>
+
+
+    <!-- 添加用户
+         parameterType：指定输入参数类型是pojo（包括用户信息）
+         #{}中指定pojo的属性名，接收到pojo对象的属性值，mybatis通过ognl获取对象的属性值 -->
+    <insert id="insertUser" parameterType="cn.nuaa.po.User">
+        <!-- 添加selectKey实现将主键返回
+            keyProperty:返回的主键存储在pojo中的哪个属性
+            order：selectKey的执行顺序，是相对与insert语句来说，由于mysql的自增原理执行完insert语句之后才将主键生成，所以这里selectKey的执行顺序为after
+            resultType:返回的主键是什么类型
+            LAST_INSERT_ID():是mysql的函数，返回auto_increment自增列新记录id值。 -->
+        <selectKey keyProperty="id" order="AFTER" resultType="java.lang.Integer">
+            select LAST_INSERT_ID()
+        </selectKey>
+        insert into user(username,birthday,sex,address) values(#{username},#{birthday},#{sex},#{address})
+    </insert>
+
+
+    <!-- 使用uuid生成主键 首先获取uuid，然后设置到user对象的主键中 在insert执行时，从user对象中取出id的属性值 -->
+    <!--
+        <insert id="insertUser1" parameterType="cn.nuaa.po.User">
+            <selectKey resultType="java.lang.String" order="BEFORE" keyProperty="id">
+                select uuid()
+            </selectKey>
+            insert into user(id,username,birthday,sex,address) values(#{id},#{username},#{birthday},#{sex},#{address})
+        </insert>
+    -->
+
+
+    <!-- 删除用户 -->
+    <delete id="deleteUserById" parameterType="int">
+		delete from user where id=#{id}
+	</delete>
+
+
+    <!-- 更新用户 id必须存在 -->
+    <update id="updateUser" parameterType="cn.nuaa.po.User">
+		update user set
+			username=#{username},birthday=#{birthday},sex=#{sex},address=#{address}
+		where id=#{id}
+	</update>
+
+
+    <!-- 定义sql片段
+      id:sql片段的唯一标示
+      经验：一般是基于单表来定义SQL片段，这样的话SQL片段的可重用性比较高 在sql片段中不要包括where
+      SELECT * FROM USER
+      WHERE user.sex=? and user.username LIKE '%王%'
+      AND ( id=? OR id=? OR id=? )
+      AND id IN( ? , ? , ? )
+     -->
+    <sql id="query_user_where">
+        <if test="userCustom!=null">
+            <if test="userCustom.sex!=null and userCustom.sex!=''">
+                and user.sex=#{userCustom.sex}
+            </if>
+            <if test="userCustom.username!=null and userCustom.username!=''">
+                and user.username LIKE '%${userCustom.username}%'
+            </if>
+            <if test="ids!=null">
+                <!-- 使用forEach便利传入的多个ids
+                    collection:指定输入对象中集合属性
+                    item:每次遍历的对象名
+                    open:开始遍历时拼接的串
+                    close:结束遍历时拼接的串
+                    separator:遍历的两个对象中间所要拼接的串
+
+                    AND (id=1 or id=3 or id=9)
+                 -->
+                <foreach collection="ids" item="user_id" open="AND (" close=")" separator="OR">
+                    <!-- 每次遍历所需要拼接的串-->
+                    id=#{user_id}
+                </foreach>
+
+                <!-- 实现and id IN(1,10,16)的拼接 -->
+                <foreach collection="ids" item="user_id" open="AND id IN(" close=")" separator=",">
+                    <!-- 每次遍历所需要拼接的串-->
+                    #{user_id}
+                </foreach>
+            </if>
+        </if>
+    </sql>
+
+
+    <!-- 用户信息综合查询 单表查询。parameterType:可以用别名，因为已经批量扫描了 #{userCustom.sex}:取出pojo包装对象中性别的值 -->
+    <select id="findUserList" parameterType="cn.nuaa.po.UserQueryVo" resultType="cn.nuaa.po.UserCustom">
+        SELECT * FROM USER
+        <!-- where可以自动去掉条件中的第一个and -->
+        <where>
+            <!-- 引用SQL片段的id，如果refid指定的id不在本mapper文件中，需要前面加namespace -->
+            <include refid="query_user_where"></include>
+            <!-- 在这里还要引用其他的sql片段 -->
+        </where>
+    </select>
+
+
+    <!-- 传递hashmap综合查询用户信息 -->
+    <select id="findUserByHashmap" parameterType="hashmap" resultType="user">
+        select * from user where id=#{id} and username like '%${username}%'
+    </select>
+
+
+    <!-- 用户信息综合查询总数 -->
+    <select id="findUserCount" parameterType="cn.nuaa.po.UserQueryVo" resultType="int">
+        SELECT count(*) FROM USER
+        <!-- where可以自动去掉条件中的第一个and -->
+        <where>
+            <!-- 引用SQL片段的id，如果refid指定的id不在本mapper文件中，需要前面加namespace -->
+            <include refid="query_user_where"></include>
+            <!-- 在这里还要引用其他的sql片段 -->
+        </where>
+    </select>
+
+
+</mapper>

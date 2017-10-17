@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 命名空间，作用就是对SQL分类化管理 ，理解为SQL隔离
+	注意：使用mapper代理方式开发，namespace有特殊重要的作用 -->
+<mapper namespace="test">
+    <!-- 在映射文件中配置很多sql语句 -->
+
+
+    <!-- 通过select执行数据库的查询
+        id：用于标识映射文件中的sql，称为statement的id 将来这个sql语句会封装到mappedStatement对象中，所以将id称为statement的id
+        需求：通过id查询用户表的记录
+        #{}:表示一个占位符,可以接收简单类型、pojo、hashmap，如果接收简单类型可以使用#{value}，或者是其它名称
+        parameterType：指定传入参数的类型
+        #{id}:其中的id表示接受输入的参数，参数名为id，如果输入参数为简单类型，#{}中的参数名可以任意，可以是value或其他的
+        resultType:指定sql输出结果的所映射的java对象类型，这里select指定resultType表示将单条记录映射成的java对象 -->
+    <select id="findUserById" parameterType="int" resultType="cn.nuaa.po.User">
+        select * from user where id=#{id}
+    </select>
+
+
+    <!-- 自定义条件查询用户列表
+        ${}：表示拼接sql串，将接受到参数的内容不加任何的修饰拼接到sql语句中
+        这种方式使用$可能会引起SQL注入，可以接收简单类型、pojo、hashmap
+        ${value}：表示接受参数输入的内容，如果传入的参数是简单类型，只能使用value
+    -->
+    <select id="findUserByUsername" parameterType="java.lang.String" resultType="cn.nuaa.po.User">
+        select * from user where username like '%${value}%'
+    </select>
+
+
+    <!-- 添加用户
+        parameterType：指定输入参数类型是pojo（包括用户信息）
+        #{}中指定pojo的属性名，接收到pojo对象的属性值，mybatis通过ognl获取对象的属性值 -->
+    <insert id="insertUser" parameterType="cn.nuaa.po.User">
+        <!-- 添加selectKey实现将主键返回
+         keyProperty:返回的主键存储在pojo中的那个属性
+         order：selectKey的执行顺序，是相对与insert语句来说，由于mysql的自增原理执行完insert语句之后才将主键生成，所以这里selectKey的执行顺序为after
+         resultType:返回的主键是什么类型
+         LAST_INSERT_ID():是mysql的函数，返回auto_increment自增列新记录id值。 -->
+        <selectKey keyProperty="id" order="AFTER" resultType="java.lang.Integer">
+            select LAST_INSERT_ID()
+        </selectKey>
+        insert into user(username,birthday,sex,address) values(#{username},#{birthday},#{sex},#{address})
+    </insert>
+
+
+    <!-- 使用uuid生成主键
+        首先获取uuid，然后设置到user对象的主键中
+        在insert执行时，从user对象中取出id的属性值
+    -->
+    <!--<insert id="insertUser1" parameterType="cn.itcast.mybatis.po.User">
+            <selectKey keyProperty="id" order="BEFORE" resultType="java.lang.String">
+                select uuid()
+            </selectKey>
+            insert into user(id,username,birthday,sex,address) values(#{id},#{username},#{birthday},#{sex},#{address})
+        </insert> -->
+
+
+    <!-- 删除用户 -->
+    <delete id="deleteUserById" parameterType="int">
+        delete from user where id=#{id}
+    </delete>
+
+
+    <!-- 更新用户
+        id必须存在
+     -->
+    <update id="updateUser" parameterType="cn.nuaa.po.User">
+        update user set username=#{username},birthday=#{birthday},sex=#{sex},address=#{address} where id=#{id}
+    </update>
+
+
+
+</mapper>

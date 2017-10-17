@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="cn.nuaa.mapper.ItemsMapper">
+    <select id="findItemsById" parameterType="int" resultType="cn.nuaa.po.Items">
+        SELECT * FROM items WHERE id=#{id}
+    </select>
+
+    <update id="updateItems" parameterType="cn.nuaa.po.ItemsCustom">
+        UPDATE items SET id=#{id}, name=#{name}, price=#{price}, detail=#{detail},pic=#{pic}, createtime=#{createtime} WHERE id=#{id}
+    </update>
+</mapper>
